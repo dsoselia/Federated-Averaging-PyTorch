@@ -18,9 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 class FedavgServer(BaseServer):
-    def __init__(self, args, writer, server_dataset, client_datasets, model):
+    def __init__(self, args, writer, server_dataset, client_datasets, model, run):
         self.args = args
         self.writer = writer
+        self.run = run
 
         # round indicator
         self.round = 0
@@ -247,10 +248,11 @@ class FedavgServer(BaseServer):
         # calculate mixing coefficients according to sample sizes
         coefficients = {identifier: coefficient / sum(updated_sizes.values()) for identifier, coefficient in updated_sizes.items()}
         
+        
         # accumulate weights
         for identifier in ids:
             locally_updated_weights_iterator = self.clients[identifier].upload()
-            self.server_optimizer.accumulate(coefficients[identifier], locally_updated_weights_iterator)
+            self.server_optimizer.accumulate(coefficients[identifier], locally_updated_weights_iterator, lagrage = self.args.lagrage)
         logger.info(f'[{self.args.algorithm.upper()}] [Round: {str(self.round).zfill(4)}] ...successfully aggregated into a new gloal model!')
 
     def _cleanup(self, indices):
@@ -294,7 +296,9 @@ class FedavgServer(BaseServer):
         ## metrics
         for metric, value in result['metrics'].items():
             server_log_string += f'| {metric}: {value:.4f} '
+            self.run.log({f'server_{metric}': value , 'global_round': self.round})
         logger.info(server_log_string)
+        
 
         # log TensorBoard
         self.writer.add_scalar('Server Loss', loss, self.round)

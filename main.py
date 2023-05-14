@@ -2,6 +2,7 @@ import os
 import time
 import torch
 import argparse
+import wandb
 
 from importlib import import_module
 from torch.utils.tensorboard import SummaryWriter
@@ -10,7 +11,7 @@ from src import Range, set_logger, TensorBoardRunner, check_args, set_seed, load
 
 
 
-def main(args, writer):
+def main(args, writer, run):
     """Main program to run federated learning.
     
     Args:
@@ -36,7 +37,7 @@ def main(args, writer):
 
     # create central server
     server_class = import_module(f'src.server.{args.algorithm}server').__dict__[f'{args.algorithm.title()}Server']
-    server = server_class(args=args, writer=writer, server_dataset=server_dataset, client_datasets=client_datasets, model=model)
+    server = server_class(args=args, writer=writer, server_dataset=server_dataset, client_datasets=client_datasets, model=model, run=run)
     
     # federated learning
     for curr_round in range(1, args.R + 1):
@@ -72,6 +73,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_tb', help='use TensorBoard to track logs (if passed)', action='store_true')
     parser.add_argument('--tb_port', help='TensorBoard port number (valid only if `use_tb`)', type=int, default=6006)
     parser.add_argument('--tb_host', help='TensorBoard host address (valid only if `use_tb`)', type=str, default='0.0.0.0')
+    parser.add_argument('--lagrage', help='use Lagrange multiplier for local training (if passed)', action='store_true', default=False)
     
     #####################
     # Dataset arguments #
@@ -179,6 +181,13 @@ if __name__ == "__main__":
     # parse arguments
     args = parser.parse_args()
     
+    run = wandb.init(project="updated_repo_baseline", entity="742-fednl")
+    for key, value in vars(args).items():
+        run.config[key] = value
+        
+    
+    
+    
     # make path for saving losses & metrics & models
     curr_time = time.strftime("%y%m%d_%H%M%S", time.localtime())
     args.exp_name = f'{args.exp_name}_{args.seed}_{args.dataset.lower()}_{args.model_name.lower()}'
@@ -206,7 +215,7 @@ if __name__ == "__main__":
     )
 
     # run main program
-    main(args, writer)
+    main(args, writer, run)
     
     # bye!
     if tb is not None:

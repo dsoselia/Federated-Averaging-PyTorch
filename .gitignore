@@ -1,0 +1,20 @@
+main.py
+src/models/__pycache__/
+data/
+log/
+src/algorythm/__pycache__/
+src/dataset/__pycache__/
+src/datasets/__pycache__/
+src/loaders/__pycache__/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+*.pyc
+
+
+wandb/
