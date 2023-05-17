@@ -17,6 +17,22 @@ logger = logging.getLogger(__name__)
 
 
 
+def get_mean_std_and_sample(weights, use_sampling = False, sampling_parameter = 1):
+    mean = torch.mean(weights, dim=0)
+    std = torch.std(weights, dim=0, unbiased=False)
+    # print("mean" , mean)
+    # print("std" , std)
+    # check if all stds are zero
+    if torch.all(std == 0):
+        std += 1e-9
+    if use_sampling:
+        return torch.normal(mean, std * sampling_parameter)
+    else:
+        return mean
+    
+def sigmoid_kernel(x):
+    return torch.sigmoid(x)
+
 class FedavgServer(BaseServer):
     def __init__(self, args, writer, server_dataset, client_datasets, model, run):
         self.args = args
@@ -248,11 +264,29 @@ class FedavgServer(BaseServer):
         # calculate mixing coefficients according to sample sizes
         coefficients = {identifier: coefficient / sum(updated_sizes.values()) for identifier, coefficient in updated_sizes.items()}
         
-        
-        # accumulate weights
+        weights_dict = {}
         for identifier in ids:
-            locally_updated_weights_iterator = self.clients[identifier].upload()
-            self.server_optimizer.accumulate(coefficients[identifier], locally_updated_weights_iterator, lagrage = self.args.lagrage)
+            for name, param in self.clients[identifier].upload():
+                if name not in weights_dict.keys():
+                    weights_dict[name] = []
+                weights_dict[name].append(param.data)
+        for weight_idx, name in enumerate(weights_dict):
+            weights = torch.stack(weights_dict[name])
+
+            
+            mean = torch.mean(weights, dim=0)
+            std = torch.std(weights, dim=0)
+            
+            new_weight_value = get_mean_std_and_sample(weights, use_sampling = self.args.use_sampling, sampling_parameter = self.args.sampling_parameter)
+            self.server_optimizer.param_groups[0]["params"][weight_idx].data = new_weight_value
+        
+
+        
+        print("here")
+        # accumulate weights
+        # for identifier in ids:
+        #     locally_updated_weights_iterator = self.clients[identifier].upload()
+        #     self.server_optimizer.accumulate(coefficients[identifier], locally_updated_weights_iterator, lagrage = self.args.lagrage)
         logger.info(f'[{self.args.algorithm.upper()}] [Round: {str(self.round).zfill(4)}] ...successfully aggregated into a new gloal model!')
 
     def _cleanup(self, indices):
