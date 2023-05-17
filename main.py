@@ -116,6 +116,7 @@ if __name__ == "__main__":
         parser.add_argument('--rawsmpl', help='fraction of raw data to be used (only used when one of `LEAF` datasets is used)', type=float, choices=[Range(0., 1.)], default=1.0)
         parser.add_argument('--use_sampling', help='use sampling for data split (if passed)', action='store_true')
         parser.add_argument('--sampling_parameter' , help='sampling parameter for data split (only used when `use_sampling` is passed)', type=float, choices=[Range(0., 1.)], default=0.1)
+        parser.add_argument('--sample_difference', action='store_true', help='use diff between client and server weights for sampling')
         
         
         ###################

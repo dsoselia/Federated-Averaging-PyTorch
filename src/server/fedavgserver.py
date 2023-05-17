@@ -270,15 +270,29 @@ class FedavgServer(BaseServer):
                 if name not in weights_dict.keys():
                     weights_dict[name] = []
                 weights_dict[name].append(param.data)
+
         for weight_idx, name in enumerate(weights_dict):
             weights = torch.stack(weights_dict[name])
+            server_weight = self.server_optimizer.param_groups[0]["params"][weight_idx].data
 
-            
-            mean = torch.mean(weights, dim=0)
-            std = torch.std(weights, dim=0)
-            
-            new_weight_value = get_mean_std_and_sample(weights, use_sampling = self.args.use_sampling, sampling_parameter = self.args.sampling_parameter)
-            self.server_optimizer.param_groups[0]["params"][weight_idx].data = new_weight_value
+            # Choose method based on args.sample_difference
+            if self.args.sample_difference:
+                # Calculate difference with server optimizer
+                differences = weights - server_weight
+
+                # Sample from the differences
+                mean_diff = torch.mean(differences, dim=0)
+                std_diff = torch.std(differences, dim=0)
+                new_weight_value = get_mean_std_and_sample(differences, use_sampling = self.args.use_sampling, sampling_parameter = self.args.sampling_parameter)
+
+                # Update server weights
+                self.server_optimizer.param_groups[0]["params"][weight_idx].data = server_weight + new_weight_value
+            else:
+                mean = torch.mean(weights, dim=0)
+                std = torch.std(weights, dim=0)
+                new_weight_value = get_mean_std_and_sample(weights, use_sampling = self.args.use_sampling, sampling_parameter = self.args.sampling_parameter)
+
+                self.server_optimizer.param_groups[0]["params"][weight_idx].data = new_weight_value
         
 
         
